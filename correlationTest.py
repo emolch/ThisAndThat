@@ -125,16 +125,3 @@ statPlot = plotStations()
 show()
 
 sys.exit(0)
-#for line in rotTrac:
-#    deg = line[0]
- #   tmpRotTracList = line[1]
- #   stepCorrelationDict = {}
- #   for pair in tmpRotTracList:
- #       stepCorrelationDict[]getTracesCorrelation(pair[0],pair[1])
-
-#Crosscorrelation der Autocorrelation muss eins sein, damit die Spuren 
-#identisch sind. 
-# Idee: tNull scroll bar 
-#       dt scoll bar 
-#       traces.copy
-#           checkout pyrocko.pile.add_listener()

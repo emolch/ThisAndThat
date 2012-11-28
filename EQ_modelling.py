@@ -34,7 +34,9 @@ Three synthetic seismograms of an STS2 seismometer will be the result
 class ParaEditCp_TF_GTTG(Snuffling):
 
     def __del__(self):
-        print 'tschuess'
+        print "called del"
+        if self.seis is not None:
+            self.seis.close()
 
     def setup(self):
         
@@ -74,7 +76,7 @@ class ParaEditCp_TF_GTTG(Snuffling):
 
         # Composition of the source
         olat, olon = 36.9800, -3.5400
-        otime = util.str_to_time('1954-03-29 06:16:05')
+        otime = util.str_to_time('2000-01-1 00:00:00')
         
         # The gfdb can be chosen within snuffler. 
         # This refers to the 'add_parameter' method.
@@ -91,24 +93,23 @@ class ParaEditCp_TF_GTTG(Snuffling):
         seis.set_source_location( olat, olon, otime)
         seis.set_source_constraints (0, 0, 0, 0 ,0 ,-1)
         self.seis = seis        
-
+        seis = None
         # Change strike within snuffler with the added scroll bar.
         #strike = self.strike
 
         # Other focal mechism parameters are constants
-        dip = 90; strike=0; rake = 0; moment = 7.00e20; source_depth = self.source_depth; risetime = 24 
+        dip = 90; strike=0; rake = 0; moment = 7.00e20; source_depth = self.source_depth*1000; 
 
         risetime=3
-        mxx=1
-        myy=1
-        mzz=1
-        mxy=0
-        mxz=0
-        myz=0
-        s = source.Source(sourcetype='bilateral',
-        sourceparams_str='0 0 0 %g %g %g %g %g 0 0 0 0 1 %g' % (source_depth, moment, strike, dip, rake, risetime))
-        #s = source.Source(sourcetype='moment_tensor',
-        #sourceparams_str='%g %g %g %g %g 0 %g %g 0 0 %g' % ( myy, myz, mxz, mxx, mxy, mzz, source_depth, risetime))
+        mxx=0.
+        myy=0.
+        mzz=0.
+        mxy=0.
+        mxz=-1.
+        myz=0.
+        Sourceparams = dict(zip(['mxx', 'myy', 'mzz', 'mxy', 'mxz', 'myz', 'depth'],[mxx, myy, mzz, mxy, mxz, myz,  source_depth]))
+        s = source.Source(sourcetype='moment_tensor',
+        sourceparams=Sourceparams)
 
         self.seis.set_source(s)
         recs = self.seis.get_receivers_snapshot( which_seismograms = ('syn',), which_spectra=(), which_processing='tapered')
@@ -119,9 +120,9 @@ class ParaEditCp_TF_GTTG(Snuffling):
             trs.extend(rec.get_traces())
         
         # Define fade in and out, band pass filter and cut off fader for the TF.
-        tfade = 8
-        freqlimit = (0.005,.006,1,1.3)
-        cut_off_fading = 5
+        tfade = 10
+        freqlimit = (0.005,.006,2,2.6)
+        cut_off_fading = 10
         ntraces = []
         
         for tr in trs:
@@ -135,6 +136,6 @@ class ParaEditCp_TF_GTTG(Snuffling):
             ntraces.append(trace_filtered)            
             
         self.add_traces(ntraces)        
-        seis = None
+
 def __snufflings__():
     return [ ParaEditCp_TF_GTTG() ]

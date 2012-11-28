@@ -1,0 +1,55 @@
+#! /bin/bash
+stations=$1
+OUTFILE="$1_GMT_plot.eps"
+
+if [ $# -lt 1 ]
+then
+        echo " "
+        echo " USAGE: makeStationMap Stationfile"
+        echo " "
+        echo " FILE FORMAT (examples):"
+        echo "      LAT LON 12 0 1 1 TEXT "
+        echo "      LAT LON TEXT "
+        echo " "
+        exit
+fi
+
+#define area:
+lat_1=$(minmax -C $stations | awk {'print $1'})
+lat_2=$(minmax -C $stations | awk {'print $2'})
+lon_1=$(minmax -C $stations | awk {'print $3'})
+lon_2=$(minmax -C $stations | awk {'print $4'})
+#IRGENDWIE SO:
+echo 'creating map....'
+#lat_1_off='echo "$lat_1+1" | bc -l '
+#echo "$lat_1_off" | bc -l
+echo 'lat min: '$lat_1 
+echo 'lat max: '$lat_2
+echo 'lon min: '$lon_1
+echo 'lon max: '$lon_2
+# Plot map:
+# -B - tickmarks
+# -N1 - National borders
+# -Ggray - fill dry areas with gray
+# -K more code to come
+# -O die Datei wird ergänzt
+# -D line precission: i(mid),h(high)
+# -W coaslineprecission, colorcode
+pscoast -R$lat_1/$lat_2/$lon_1/$lon_2 -W0.001p,39/170/234 -JM6i --PAPER_MEDIA=Custom_20cx20c\
+     -B1a2/1a2:."$stations":WENS -N1 -G252/245/227 -Di -K -S218/240/253 -P > $OUTFILE
+
+numberOfLines=$(awk 'NR==1 { print NF}' $stations)
+echo 'number of lines: '${numberOfLines[0][0]}
+# Add stations 
+
+
+if [ $numberOfLines -gt 3 ]
+then 
+    psxy $stations -R -J -G0/0/255 -St0.2i -O -K >> $OUTFILE
+    pstext $stations -R -J -G0/0/255 -D0.2/0.2 -O >> $OUTFILE
+else
+    psxy $stations -R -J -G0/0/255 -St0.2i -O >> $OUTFILE
+fi
+
+echo "Outfile written to:" $OUTFILE
+gv $OUTFILE

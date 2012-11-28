@@ -1,0 +1,30 @@
+#!/usr/bin/env python 
+
+import pyrocko
+from pyrocko import io, util
+from os import walk
+import sys
+from glob import glob
+
+def usage():
+    sys.exit(('''USAGE: {0} FILE1 FILE2 .....
+
+    Returns an overview of the header information of the first trace in a miniseed file.
+
+    (marius.kriegerowski(at)zmaw.de) ''').format(sys.argv[0]))
+
+
+if len(sys.argv)==1:
+    usage()
+    sys.exit()
+
+infiles = sys.argv[1:]
+filenamlength = len(max(infiles, key=len))
+print  '{0:{1}}| {2:5}| {3:5}| {4:5}| {5:5}| {6}'.format('FILNAME',filenamlength+1,'NET','STAT','LOC','dt','TRANGE')
+for line in infiles:
+    try:
+        infile_tmp = io.load(line, getdata=False)
+        info = infile_tmp[0]
+        print  '{0:{1}}| {2:5}| {3:5}| {4:5}| {5:5}| {6} - {7}'.format(line,filenamlength+1, info.network, info.station, info.location, info.deltat, util.time_to_str(info.tmin), util.time_to_str(info.tmax))
+    except pyrocko.io_common.FileLoadError:
+        pass

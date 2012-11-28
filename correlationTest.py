@@ -114,9 +114,9 @@ for key in correlationStatVal.keys():
         maxval = max(tmpVal) 
 
         if maxval > oldmaxval:
-            merke = line[0]
+            degOfMax = line[0]
             oldmaxval = maxval
-    print '{0} {1} {2}'.format(key, merke+45, merke+180+45)
+    print '{0} {1} {2}'.format(key, degOfMax+45, degOfMax+180+45)
     #figure()
     #plot(tmpDeg, tmpVal)
     #title(key)

@@ -31,10 +31,23 @@ Three synthetic seismograms of an STS2 seismometer will be the result
             a /= w-i_p
         return a
 
-class ParaEditCp_TF_GTTG(Snuffling):
+class extendedSnuffling(Snuffling):
+    def __init__(self):
+        Snuffling.__init__(self)
 
-    def __del__(self):
-        print "called del"
+    def pre_destroy(self):
+        self.cleanup()
+        if self._tempdir is not None:
+            import shutil
+            shutil.rmtree(self._tempdir)  
+        try:
+            self.mydel()
+        except AttributeError:
+            pass
+
+class ParaEditCp_TF_GTTG(extendedSnuffling):
+
+    def mydel(self):
         if self.seis is not None:
             self.seis.close()
 
@@ -139,3 +152,5 @@ class ParaEditCp_TF_GTTG(Snuffling):
 
 def __snufflings__():
     return [ ParaEditCp_TF_GTTG() ]
+
+

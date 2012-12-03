@@ -18,7 +18,7 @@ Three synthetic seismograms of an STS2 seismometer will be the result
 
         Poles = array([-3.7e-2+3.7e-2j, -3.7e-2-3.7e-2j, 
                        -2.51e2, -1.31e2+4.67e2j, -1.31e2-4.67e2])
-        Zeros = array([0, 0, 0])
+        Zeros = array([0, 0])
         K = 6.16817e7
 
         # Multiply factored polynomials of the transfer function's numerator
@@ -56,15 +56,18 @@ class ParaEditCp_TF_GTTG(extendedSnuffling):
         
         # Give the snuffling a name:
         self.set_name('EQmodelling')
+       
+        self.db = gfdb.Gfdb('/scratch/local1/auto_Rotate_Test/gfdb_sediment/db')
         
         # Add scrollbars of the parameters that you desire to adjust.
         # 1st argument: Description that appears within the snuffling.
         # 2nd argument: Name of parameter as used in the following code.
         # 3rd-5th argument: default, start, stop.
-        self.add_parameter(Param('Source Depth [km]','source_depth', 10., 1., 100.))
-        self.add_parameter(Param('Distance North [km]','d_north', 10., 100., 500.))
-        self.add_parameter(Param('Distance East[km]','d_east', 10., 100., 500.))
-
+        self.add_parameter(Param('Source Depth [m]','source_depth', self.db.firstz, self.db.firstz, self.db.nz*self.db.dz-self.db.dz))
+        self.add_parameter(Param('Distance North [m]','d_north', self.db.firstx, self.db.firstx, self.db.nx*self.db.dx-self.db.dx))
+        self.add_parameter(Param('Distance East [m]','d_east', self.db.firstx, self.db.firstx, self.db.nx*self.db.dx-self.db.dx))
+        self.add_parameter(Param('Time fade [s]','tfade', 5.,2.,15))
+        self.add_parameter(Switch('Save miniseed traces in .snufflings?','save_mseed', False))
         self.set_live_update(False)
 
 
@@ -80,16 +83,16 @@ class ParaEditCp_TF_GTTG(extendedSnuffling):
         receivers = []
         station, lat, lon, depth = tab.split()
 
-        d_north=self.d_north*1000
-        d_east=self.d_east*1000
+        d_north=self.d_north
+        d_east=self.d_east
         origin_lat, origin_lon = orthodrome.ne_to_latlon_alternative_method(float(lat), float(lon), d_north, d_east)
         r = receiver.Receiver(lat,lon, components='neu', name='.%s.' % station)
         receivers.append(r)
 
         # Composition of the source
         otime = util.str_to_time('2000-01-1 00:00:00')
-        
-        db = gfdb.Gfdb('/media/exupery2/gemini-iasp91-20000km/db')
+        db = self.db
+        #db = gfdb.Gfdb('/media/exupery2/gemini-iasp91-20000km/db')
 
         seis = seismosizer.Seismosizer(hosts=['localhost'])
         seis.set_database(db)
@@ -100,11 +103,6 @@ class ParaEditCp_TF_GTTG(extendedSnuffling):
         seis.set_source_constraints (0, 0, 0, 0 ,0 ,-1)
         self.seis = seis        
         seis = None
-        # Change strike within snuffler with the added scroll bar.
-        #strike = self.strike
-
-        # Other focal mechism parameters are constants
-        #dip = 90; strike=0; rake = 0; moment = 7.00e20; source_depth = self.source_depth*1000; 
 
         risetime=3
         mxx=0.
@@ -113,20 +111,23 @@ class ParaEditCp_TF_GTTG(extendedSnuffling):
         mxy=0.
         mxz=-1.
         myz=0.
-        Sourceparams = dict(zip(['mxx', 'myy', 'mzz', 'mxy', 'mxz', 'myz', 'depth'],[mxx, myy, mzz, mxy, mxz, myz,  self.source_depth*1000]))
-        s = source.Source(sourcetype='moment_tensor',
-        sourceparams=Sourceparams)
-        #print source.source_infos('moment_tensor')
+        Sourceparams = dict(zip(['mxx', 'myy', 'mzz', 'mxy', 'mxz', 'myz', 'depth', 'rise-time'],
+            [mxx, myy, mzz, mxy, mxz, myz,  self.source_depth, risetime]))
+        s = source.Source(sourcetype='moment_tensor', sourceparams=Sourceparams)
+        #dip = 90; rake = 0; moment = 7.00e20; depth = 10000; strike=0.
+        #s = source.Source('bilateral',
+        #sourceparams_str='0 0 0 %g %g %g %g %g 0 0 0 0 1 %g' % (depth, moment, strike, dip, rake, risetime))
         self.seis.set_source(s)
         recs = self.seis.get_receivers_snapshot( which_seismograms = ('syn',), which_spectra=(), which_processing='tapered')
         
         trs = []
         for rec in recs:
-            rec.save_traces_mseed(filename_tmpl='%(whichset)s_%(network)s_%(station)s_%(location)s_%(channel)s.mseed' )
+            if self.save_mseed is True:
+                rec.save_traces_mseed(filename_tmpl='$HOME/.snufflings/%(whichset)s_%(network)s_%(station)s_%(location)s_%(channel)s.mseed' )
             trs.extend(rec.get_traces())
-        
+        self.add_traces(trs)
         # Define fade in and out, band pass filter and cut off fader for the TF.
-        tfade = 0
+        tfade = self.tfade
         freqlimit = (0.005,.006,1,1.2)
         cut_off_fading = 50
         ntraces = []
@@ -138,10 +139,9 @@ class ParaEditCp_TF_GTTG(extendedSnuffling):
             trace_filtered = tr.transfer(tfade, freqlimit, TF, cut_off_fading)            
             # Set new codes to the filtered trace to make it identifiable.
             rename={'e':'BHE','n':'BHN','u':'BHZ'}
-            trace_filtered.set_codes(channel=rename[trace_filtered.channel], network='', station='HHHA', location='syn')
+            trace_filtered.set_codes(channel=rename[trace_filtered.channel], network='STS2', station='HH', location='syn')
             ntraces.append(trace_filtered)            
-            
-        self.add_traces(ntraces)        
+        #self.add_traces(ntraces)        
 
 def __snufflings__():
     return [ ParaEditCp_TF_GTTG() ]

@@ -57,7 +57,7 @@ class ParaEditCp_TF_GTTG(extendedSnuffling):
         # Give the snuffling a name:
         self.set_name('EQmodelling_SDR')
        
-        self.db = gfdb.Gfdb('/scratch/local1/auto_Rotate_Test/gfdb_sediment/db')
+        self.db = gfdb.Gfdb('/scratch/local1/gfdb_sediment_cut/db')
         
         # Add scrollbars of the parameters that you desire to adjust.
         # 1st argument: Description that appears within the snuffling.
@@ -96,7 +96,6 @@ class ParaEditCp_TF_GTTG(extendedSnuffling):
         # Composition of the source
         otime = util.str_to_time('2000-01-1 00:00:00')
         db = self.db
-        #db = gfdb.Gfdb('/media/exupery2/gemini-iasp91-20000km/db')
 
         seis = seismosizer.Seismosizer(hosts=['localhost'])
         seis.set_database(db)

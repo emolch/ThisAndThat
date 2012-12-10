@@ -20,6 +20,7 @@ class fk(Snuffling):
     
     def setup(self):
         self.set_name('fk Analysis')
+        self.add_parameter(Param('Number of Steps','numberOfFraction',4,4,40))
         self.add_trigger('start', self.start_fk_anlysis)
         self.set_live_update(False)
 
@@ -43,6 +44,7 @@ class fk(Snuffling):
 
 
     def start_fk_anlysis(self, tmin, tmax):
+        print 'asdf'
 
         tmax = prepare_time_string(tmax)
         tmin = prepare_time_string(tmin)
@@ -90,7 +92,7 @@ class fk(Snuffling):
         baz[baz < 0.0] += 360
 
         # choose number of fractions in plot (desirably 360 degree/N is an integer!)
-        N = 4
+        N = self.numberOfFraction
         abins = np.arange(N + 1) * 360. / N
         sbins = np.linspace(0, 3, N + 1)
 

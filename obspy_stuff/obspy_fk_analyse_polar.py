@@ -1,10 +1,13 @@
 from pyrocko.snuffling import Param, Snuffling, Switch, pile, Choice
 from pyrocko import io, util, model
-from obspy.core import UTCDateTime, read
-from obspy.signal import cornFreq2Paz
-from obspy.signal.array_analysis import sonic
-import pickle
-import urllib
+try:
+    from obspy.core import UTCDateTime, read
+    from obspy.signal import cornFreq2Paz
+    from obspy.signal.array_analysis import sonic
+    import pickle
+    import urllib
+except ImportError:
+    print 'please note: cannot import each module needed for fk_analysis snuffling'
 
 def prepare_time_string(t):
     gm_time = util.time.gmtime(t)
@@ -34,17 +37,18 @@ class fk(Snuffling):
         pile = self.get_pile()
         outTracs = [] 
         for trac in pile.chopper(tmin=tmin, tmax=tmax):
-            outTracs.append(trac)
+            print trac
+            outTracs.append(trac[0])
         
         io.save(outTracs[0], 'tmp_fkIn.mseed')
+        print viewer.station_latlon(trac[0])
         print type(pile.stations.pop())
 
-        #self.start_fk_anlysis(tmin+1, tmax-1)
+        self.start_fk_anlysis(tmin+1, tmax-1)
 
 
 
     def start_fk_anlysis(self, tmin, tmax):
-        print 'asdf'
 
         tmax = prepare_time_string(tmax)
         tmin = prepare_time_string(tmin)

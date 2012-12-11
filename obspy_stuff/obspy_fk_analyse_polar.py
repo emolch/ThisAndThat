@@ -1,7 +1,7 @@
 from pyrocko.snuffling import Param, Snuffling, Switch, pile, Choice
 from pyrocko import io, util, model
 try:
-    from obspy.core import UTCDateTime, read
+    from obspy.core import UTCDateTime, read, stream, trace
     from obspy.signal import cornFreq2Paz
     from obspy.signal.array_analysis import sonic
     import pickle
@@ -11,54 +11,55 @@ except ImportError:
 
 def prepare_time_string(t):
     gm_time = util.time.gmtime(t)
-    time_string = '%s%s%s%s%s%s'%(str(gm_time.tm_year), 
+    return '%s%s%s%s%s%s'%(str(gm_time.tm_year), 
             str(gm_time.tm_mon).zfill(2), 
             str(gm_time.tm_mday).zfill(2),
             str(gm_time.tm_hour).zfill(2), 
             str(gm_time.tm_min).zfill(2), 
             str(gm_time.tm_sec).zfill(2)) 
-    return time_string
 
 class fk(Snuffling):
     
     def setup(self):
         self.set_name('fk Analysis')
         self.add_parameter(Param('Number of Steps','numberOfFraction',4,4,40))
-        self.add_trigger('start', self.start_fk_anlysis)
         self.set_live_update(False)
 
     def call(self):
         self.cleanup()
 
         # get time range visible in viewer
-        viewer = self.get_viewer()
-        tmin, tmax = viewer.get_time_range()
-        print 'tmin: %s, tmax: %s'%(tmin, tmax)
+        self.viewer = self.get_viewer()
+        self.tmin, self.tmax = self.viewer.get_time_range()
+        print 'tmin: %s, tmax: %s'%(self.tmin, self.tmax)
         pile = self.get_pile()
-        outTracs = [] 
-        for trac in pile.chopper(tmin=tmin, tmax=tmax):
-            print trac
-            outTracs.append(trac[0])
+        self.outTracs = [] 
+        for trac in pile.chopper(tmin=self.tmin, tmax=self.tmax):
+            self.outTracs.extend(trac)
         
-        io.save(outTracs[0], 'tmp_fkIn.mseed')
-        print viewer.station_latlon(trac[0])
-        print type(pile.stations.pop())
+        io.save(self.outTracs, 'tmp_fkIn.mseed')
 
-        self.start_fk_anlysis(tmin+1, tmax-1)
+        self.start_fk_anlysis()
 
 
+    def start_fk_anlysis(self):
 
-    def start_fk_anlysis(self, tmin, tmax):
+        # todo ... zeitlimits
+        tmax = prepare_time_string(self.tmax-1)
+        tmin = prepare_time_string(self.tmin+1)
 
-        tmax = prepare_time_string(tmax)
-        tmin = prepare_time_string(tmin)
+        st= read('tmp_fkIn.mseed')
 
-        st = read('tmp_fkIn.mseed')
-        for sti in st:
-            sti.stats.coordinates={'longitude':3.4, 'latitude':33.4, 'elevation':0}
-        st[2].stats.coordinates={'longitude':3.4, 'latitude':35.4, 'elevation':0}
-        st[1].stats.coordinates={'longitude':2.4, 'latitude':34.4, 'elevation':0}
-        st[0].stats.coordinates={'longitude':3.4, 'latitude':34.4, 'elevation':0}
+        # tried to avoid file io
+        #allTraces = []
+        #for trac in self.outTracs:
+        #    allTraces.append(trace.Trace(trac))
+        #st = stream.Stream(traces=allTraces)
+
+        # Set station coordinates
+        for n,sti  in enumerate(st):
+            lat, lon = self.viewer.station_latlon(self.outTracs[n])
+            sti.stats.coordinates={'longitude': lat, 'latitude': lon, 'elevation':0}
 
         # Instrument correction to 1Hz corner frequency
         paz1hz = cornFreq2Paz(1.0, damp=0.707)
@@ -69,11 +70,11 @@ class fk(Snuffling):
             # slowness grid: X min, X max, Y min, Y max, Slow Step
             sll_x=-3.0, slm_x=3.0, sll_y=-3.0, slm_y=3.0, sl_s=0.03,
             # sliding window properties
-            win_len=1.0, win_frac=0.05,
+            win_len=0.6, win_frac=0.01,
             # frequency properties
-            frqlow=1.0, frqhigh=8.0, prewhiten=0,
+            frqlow=1.0, frqhigh=1.0, prewhiten=0,
             # restrict output
-            semb_thres=-1e9, vel_thres=-1e9, verbose=True, timestamp='mlabday',
+            semb_thres=-1e8, vel_thres=-1e8, verbose=True, timestamp='mlabday',
             stime=UTCDateTime(tmin), etime=UTCDateTime(tmax)
         )
         out = sonic(st, **kwargs)
@@ -86,7 +87,6 @@ class fk(Snuffling):
         import matplotlib.cm as cm
         import matplotlib.pyplot as plt
         import numpy as np
-
         cmap = cm.hot_r
         pi = np.pi
 
@@ -96,7 +96,7 @@ class fk(Snuffling):
         baz[baz < 0.0] += 360
 
         # choose number of fractions in plot (desirably 360 degree/N is an integer!)
-        N = self.numberOfFraction
+        N = int(self.numberOfFraction)
         abins = np.arange(N + 1) * 360. / N
         sbins = np.linspace(0, 3, N + 1)
 

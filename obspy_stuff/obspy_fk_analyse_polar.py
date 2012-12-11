@@ -1,13 +1,23 @@
 from pyrocko.snuffling import Param, Snuffling, Switch, pile, Choice
 from pyrocko import io, util, model
+import pickle
+import urllib
 try:
     from obspy.core import UTCDateTime, read, stream, trace
     from obspy.signal import cornFreq2Paz
     from obspy.signal.array_analysis import sonic
-    import pickle
-    import urllib
+    try:
+        from obspy.signal import array_analysis
+    except:
+        print 'using deprecated obspy.signal.sonic'
+        pass
 except ImportError:
-    print 'please note: cannot import each module needed for fk_analysis snuffling'
+    print 'please note: cannot import each required obspy module needed for fk_analysis snuffling'
+from matplotlib.colorbar import ColorbarBase
+from matplotlib.colors import Normalize
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+import numpy as np
 
 def prepare_time_string(t):
     gm_time = util.time.gmtime(t)
@@ -70,23 +80,19 @@ class fk(Snuffling):
             # slowness grid: X min, X max, Y min, Y max, Slow Step
             sll_x=-3.0, slm_x=3.0, sll_y=-3.0, slm_y=3.0, sl_s=0.03,
             # sliding window properties
-            win_len=0.6, win_frac=0.01,
+            win_len=1.5, win_frac=0.15,
+            #win_len=0.8, win_frac=0.05,
             # frequency properties
-            frqlow=1.0, frqhigh=1.0, prewhiten=0,
+            frqlow=1.0, frqhigh=8.0, prewhiten=0,
             # restrict output
-            semb_thres=-1e8, vel_thres=-1e8, verbose=True, timestamp='mlabday',
+            semb_thres=-1e9, vel_thres=-1e9, verbose=True, timestamp='mlabday',
             stime=UTCDateTime(tmin), etime=UTCDateTime(tmax)
         )
-        out = sonic(st, **kwargs)
+        #out = sonic(st, **kwargs)
+        out = array_analysis.array_processing(st, **kwargs)
 
 
 
-        # Plot
-        from matplotlib.colorbar import ColorbarBase
-        from matplotlib.colors import Normalize
-        import matplotlib.cm as cm
-        import matplotlib.pyplot as plt
-        import numpy as np
         cmap = cm.hot_r
         pi = np.pi
 
@@ -117,10 +123,12 @@ class fk(Snuffling):
 
         # circle through backazimuth
         for i, row in enumerate(hist):
+            print hist.max()
             bars = ax.bar(left=(pi / 2 - (i + 1) * dw) * np.ones(N),
                           height=dh * np.ones(N),
                           width=dw, bottom=dh * np.arange(N),
                           color=cmap(row / hist.max()))
+                            
 
         ax.set_xticks([pi / 2, 0, 3. / 2 * pi, pi])
         ax.set_xticklabels(['N', 'E', 'S', 'W'])

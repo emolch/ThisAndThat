@@ -47,7 +47,12 @@ class fk(Snuffling):
         for trac in pile.chopper(tmin=self.tmin, tmax=self.tmax):
             self.outTracs.extend(trac)
         
-        io.save(self.outTracs, 'tmp_fkIn.mseed')
+        self.traces2analize = []
+        for trac in self.outTracs:
+            if trac.channel=='BHZ':
+                self.traces2analize.append(trac)
+                
+        io.save(self.traces2analize, 'tmp_fkIn.mseed')
 
         self.start_fk_anlysis()
 
@@ -68,20 +73,19 @@ class fk(Snuffling):
 
         # Set station coordinates
         for n,sti  in enumerate(st):
-            lat, lon = self.viewer.station_latlon(self.outTracs[n])
+            lat, lon = self.viewer.station_latlon(self.traces2analize[n])
             sti.stats.coordinates={'longitude': lat, 'latitude': lon, 'elevation':0}
 
         # Instrument correction to 1Hz corner frequency
         paz1hz = cornFreq2Paz(1.0, damp=0.707)
-        #st.simulate(paz_remove='self', paz_simulate=paz1hz)
+        st.simulate(paz_remove='self', paz_simulate=paz1hz)
 
         # Execute sonic
         kwargs = dict(
             # slowness grid: X min, X max, Y min, Y max, Slow Step
             sll_x=-3.0, slm_x=3.0, sll_y=-3.0, slm_y=3.0, sl_s=0.03,
             # sliding window properties
-            win_len=1.5, win_frac=0.15,
-            #win_len=0.8, win_frac=0.05,
+            win_len=0.8, win_frac=0.05,
             # frequency properties
             frqlow=1.0, frqhigh=8.0, prewhiten=0,
             # restrict output

@@ -19,7 +19,26 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 
+
+def station_latlonele_from_pileviewer(pv, tr, default_getter=lambda tr: (0.,0.)):
+    '''
+    Method to retrieve latitude, longitude and elevation of a traces' station.
+    
+    :param pv:      pyrocko.pile_viewer instance
+    :param tr:      pyrocko.trace.Trace instance    
+    :return:        latitude, longitude, elevation
+    '''
+    return pv.station_attrib(tr, lambda sta: (sta.lat, sta.lon, sta.elevation), default_getter)
+
 def prepare_time_string(t):
+    '''
+    Method for converting time given in seconds to yyyymmddhhmmss string
+    representation.
+    
+    :type t:        float
+    :param t:       time in seconds
+    :return:        time as string representation
+    '''
     gm_time = util.time.gmtime(t)
     return '%s%s%s%s%s%s'%(str(gm_time.tm_year), 
             str(gm_time.tm_mon).zfill(2), 
@@ -42,9 +61,9 @@ class fk(Snuffling):
         self.viewer = self.get_viewer()
         self.tmin, self.tmax = self.viewer.get_time_range()
         print 'tmin: %s, tmax: %s'%(self.tmin, self.tmax)
-        pile = self.get_pile()
+        self.pile = self.get_pile()
         self.outTracs = [] 
-        for trac in pile.chopper(tmin=self.tmin, tmax=self.tmax):
+        for trac in self.pile.chopper(tmin=self.tmin, tmax=self.tmax):
             self.outTracs.extend(trac)
         
         self.traces2analize = []
@@ -72,18 +91,28 @@ class fk(Snuffling):
         #st = stream.Stream(traces=allTraces)
 
         # Set station coordinates
-        for n,sti  in enumerate(st):
-            lat, lon = self.viewer.station_latlon(self.traces2analize[n])
-            sti.stats.coordinates={'longitude': lat, 'latitude': lon, 'elevation':0}
-
         # Instrument correction to 1Hz corner frequency
         paz1hz = cornFreq2Paz(1.0, damp=0.707)
+        paz1hz['sensitivity'] = 1.0
+        paz_sts2 = {'poles': [-0.037004+0.037016j, -0.037004-0.037016j,
+                              -251.33+0.j,
+                              -131.04-467.29j, -131.04+467.29j],
+                    'zeros': [0j, 0j],
+                    'gain': 60077000.0,
+                    'sensitivity': 2516778400.0}
+        for n,sti  in enumerate(st):
+            lat, lon, ele = station_latlonele_from_pileviewer(self.viewer, self.traces2analize[n])
+            #this way???:    
+            sti.stats.paz=paz1hz
+            sti.stats.coordinates={'longitude': lat, 'latitude': lon, 'elevation': ele}
+
         st.simulate(paz_remove='self', paz_simulate=paz1hz)
+        #st.simulate(paz_simulate=paz1hz)
 
         # Execute sonic
         kwargs = dict(
             # slowness grid: X min, X max, Y min, Y max, Slow Step
-            sll_x=-3.0, slm_x=3.0, sll_y=-3.0, slm_y=3.0, sl_s=0.03,
+            sll_x=-6.0, slm_x=6.0, sll_y=-6.0, slm_y=6.0, sl_s=0.04,
             # sliding window properties
             win_len=0.8, win_frac=0.05,
             # frequency properties
@@ -92,8 +121,8 @@ class fk(Snuffling):
             semb_thres=-1e9, vel_thres=-1e9, verbose=True, timestamp='mlabday',
             stime=UTCDateTime(tmin), etime=UTCDateTime(tmax)
         )
-        #out = sonic(st, **kwargs)
-        out = array_analysis.array_processing(st, **kwargs)
+        out = sonic(st, **kwargs)
+        #out = array_analysis.array_processing(st, **kwargs)
 
 
 
